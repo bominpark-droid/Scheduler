@@ -244,12 +244,16 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
   <div class="hdr">
     <div class="hdr-row">
       <div class="logo">SP미디어텍</div>
-      <div style="display:flex;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <!-- PC tabs -->
         <div class="tabs" id="pcTabs" style="padding:0;margin:0">
           <button class="tab active" onclick="sw('matrix',this)">매트릭스</button>
           <button class="tab" onclick="sw('memo',this)">메모장</button>
           <button class="tab" onclick="sw('review',this)">완료 아카이브</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="syncStatus" style="font-size:10px;color:var(--t3)">로컬 모드</span>
+          <button onclick="syncFromSheets()" style="font-size:10px;padding:3px 8px;border-radius:var(--rx);background:var(--s2);border:1px solid var(--b2);color:var(--t2);cursor:pointer">↻ 동기화</button>
         </div>
         <div class="dt" id="dtLabel"></div>
       </div>
@@ -345,7 +349,7 @@ const QM={
 };
 const QKEYS=['q1','q2','q3','q4'];
 const REVS=['Q1 작업을 완료했나?','Q2 작업을 최소 2개 진행했나?','Q4에서 버릴 것을 버렸나?','다음 주 포커스를 정했나?','인박스를 사분면으로 분류했나?','팀에 위임할 것을 위임했나?'];
-const DEF={
+const DEF_EMPTY={
   q1:[
     {id:'a1',text:'스토리팝 PDF 편집 완성',type:'task',assign:'solo',deadline:'2026-04-29',done:false,doneAt:null},
     {id:'a2',text:'출판사등록 → ISBN 신청',type:'task',assign:'solo',deadline:'2026-04-29',done:false,doneAt:null},
@@ -371,16 +375,76 @@ const DEF={
   ]
 };
 
+// ── Google Sheets 연동 설정 ──────────────────────────
+// Apps Script 배포 후 아래 URL을 교체하세요
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyCD-kTh8SF2JkcUsEeOHQ84G_4_7QlgAu8_Gruxtt8egPtQIZQQ-Ispst2E4HrXJkl/exec';
+// ────────────────────────────────────────────────────
+
+const EMPTY_TASKS={q1:[],q2:[],q3:[],q4:[]};
+
 function ld(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):JSON.parse(JSON.stringify(def));}catch{return JSON.parse(JSON.stringify(def));}}
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 function uid(){return '_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 
-let S=ld('sp4_tasks',DEF);
+let S=ld('sp4_tasks',EMPTY_TASKS);
 let inbox=ld('sp4_inbox',[]);
 let todayList=ld('sp4_today',[]);
 let revDone=ld('sp4_rev',new Array(REVS.length).fill(false));
+let isSyncing=false;
+let lastSyncTime=null;
 
-function saveTasks(){sv('sp4_tasks',S);}
+// ── Sheets 동기화 함수들 ──────────────────────────────
+async function syncFromSheets(){
+  if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
+  try{
+    showSyncStatus('동기화 중...',false);
+    const res=await fetch(SHEETS_URL+'?action=load');
+    const data=await res.json();
+    if(data.tasks){
+      S=data.tasks;
+      sv('sp4_tasks',S);
+    }
+    if(data.inbox){inbox=data.inbox;sv('sp4_inbox',inbox);}
+    if(data.focus){
+      document.getElementById('focusInp').value=data.focus;
+      localStorage.setItem('sp4_focus',data.focus);
+    }
+    lastSyncTime=new Date();
+    showSyncStatus('동기화 완료 '+fmtTime(lastSyncTime),false);
+    renderMatrix();renderInbox();
+  }catch(e){
+    showSyncStatus('오프라인 — 로컬 데이터 사용 중',true);
+  }
+}
+
+async function saveToSheets(payload){
+  if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE'){sv('sp4_tasks',S);return;}
+  sv('sp4_tasks',S); // 로컬 먼저 저장 (오프라인 대비)
+  try{
+    await fetch(SHEETS_URL,{
+      method:'POST',
+      body:JSON.stringify(payload),
+      headers:{'Content-Type':'application/json'}
+    });
+    lastSyncTime=new Date();
+    showSyncStatus('저장됨 '+fmtTime(lastSyncTime),false);
+  }catch(e){
+    showSyncStatus('오프라인 — 로컬에만 저장됨',true);
+  }
+}
+
+function showSyncStatus(msg,isErr){
+  let el=document.getElementById('syncStatus');
+  if(!el)return;
+  el.textContent=msg;
+  el.style.color=isErr?'var(--red)':'var(--t3)';
+}
+
+function fmtTime(d){return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+
+function saveTasks(){
+  saveToSheets({action:'save',tasks:S,inbox,focus:localStorage.getItem('sp4_focus')||''});
+}
 
 function daysLeft(d){
   if(!d)return null;
@@ -734,13 +798,21 @@ function toast(msg){
 document.getElementById('qi').addEventListener('keydown',e=>{if(e.key==='Enter')quickAdd();});
 const fi=document.getElementById('focusInp');
 fi.value=localStorage.getItem('sp4_focus')||'';
-fi.addEventListener('input',()=>localStorage.setItem('sp4_focus',fi.value));
+fi.addEventListener('input',()=>{
+  localStorage.setItem('sp4_focus',fi.value);
+  clearTimeout(fi._t);
+  fi._t=setTimeout(()=>saveToSheets({action:'save',tasks:S,inbox,focus:fi.value}),1500);
+});
 const days2=['일','월','화','수','목','금','토'];
 const now=new Date();
 document.getElementById('dtLabel').textContent=`${now.getMonth()+1}월 ${now.getDate()}일 (${days2[now.getDay()]})`;
 initMemo();
 renderMatrix();
 renderInbox();
+// 시작할 때 Sheets에서 최신 데이터 불러오기
+syncFromSheets();
+// 5분마다 자동 동기화
+setInterval(syncFromSheets, 5*60*1000);
 </script>
 </body>
 </html>
