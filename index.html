@@ -9,11 +9,11 @@
 :root{
   --bg:#0f0f0f;--s1:#1a1a1a;--s2:#222;--s3:#2a2a2a;
   --b1:#2e2e2e;--b2:#3a3a3a;
-  --t1:#f0f0f0;--t2:#aaa;--t3:#666;
+  --t1:#f0f0f0;--t2:#c8c8c8;--t3:#888;
   --red:#ff4444;--rbg:rgba(255,68,68,.13);
   --amb:#ffaa00;--abg:rgba(255,170,0,.13);
   --blu:#4da6ff;--bbg:rgba(77,166,255,.13);
-  --gry:#666;--gbg:rgba(100,100,100,.12);
+  --gry:#888;--gbg:rgba(100,100,100,.12);
   --tel:#33cc88;--tbg:rgba(51,204,136,.15);
   --r:12px;--rs:8px;--rx:6px;
   --f:-apple-system,'Apple SD Gothic Neo',sans-serif;
@@ -219,18 +219,19 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
   .review-right{overflow-y:auto}
 }
 
-/* BOTTOM NAV (mobile only) */
-.bnav{display:none;background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0}
-@media(max-width:767px){.bnav{display:flex}}
-.nb{flex:1;padding:10px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;cursor:pointer;color:var(--t3);font-family:var(--f);font-size:10px}
-.nb.active{color:var(--amb)}
-.ni{font-size:17px;line-height:1}
+/* BOTTOM NAV - 모든 기기 */
+.bnav{display:flex;background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0;padding:4px 8px 4px}
+@media(min-width:768px){.bnav{padding:6px 20px 6px;gap:8px;justify-content:center}}
+.nb{flex:1;padding:8px 8px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;background:transparent;border:none;cursor:pointer;color:var(--t2);font-family:var(--f);font-size:11px;font-weight:500;border-radius:var(--rs);transition:all .15s;max-width:160px}
+.nb:hover{background:var(--s2);color:var(--t1)}
+.nb.active{background:var(--s3);color:var(--amb)}
+.ni{font-size:20px;line-height:1}
 
 /* PANES */
 .view-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column}
-.pane{display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 20px 30px}
+.pane{display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 20px 90px}
 .pane.on{display:block}
-@media(max-width:767px){.pane{padding:10px 14px 80px}}
+@media(max-width:767px){.pane{padding:10px 14px 90px}}
 
 /* TOAST */
 .toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--s3);color:var(--t1);padding:8px 16px;border-radius:var(--rs);font-size:12px;opacity:0;transition:all .25s;z-index:400;pointer-events:none;border:1px solid var(--b2);white-space:nowrap}
@@ -245,12 +246,6 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
     <div class="hdr-row">
       <div class="logo">SP미디어텍</div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <!-- PC tabs -->
-        <div class="tabs" id="pcTabs" style="padding:0;margin:0">
-          <button class="tab active" onclick="sw('matrix',this)">매트릭스</button>
-          <button class="tab" onclick="sw('memo',this)">메모장</button>
-          <button class="tab" onclick="sw('review',this)">완료 아카이브</button>
-        </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span id="syncStatus" style="font-size:10px;color:var(--t3)">로컬 모드</span>
           <button onclick="syncFromSheets()" style="font-size:10px;padding:3px 8px;border-radius:var(--rx);background:var(--s2);border:1px solid var(--b2);color:var(--t2);cursor:pointer">↻ 동기화</button>
@@ -305,47 +300,26 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
 
     <!-- REVIEW / ARCHIVE -->
     <div class="pane" id="pane-review">
-      <div class="review-layout">
-        <div class="review-left">
-          <div class="rev-sec">
-            <div class="rev-tit">주간 리뷰 체크리스트</div>
-            <div id="revList"></div>
-          </div>
-          <div class="rev-sec">
-            <div class="rev-tit">하루 시간 블록 원칙</div>
-            <div style="font-size:11px;color:var(--t3);line-height:2.1">
-              🔒 09–11 &nbsp;방어 시간 — Q2 집중<br>
-              🔴 11–13 &nbsp;Q1 긴급 처리<br>
-              ☀️ 13–14 &nbsp;점심 + 인박스 정리<br>
-              📚 14–16 &nbsp;등대글로벌 / 외부 미팅<br>
-              🛡 16–17 &nbsp;버퍼 — 돌발 상황 처리<br>
-              🏠 17시 이후 가족 시간
-            </div>
-          </div>
-        </div>
-        <div class="review-right">
-          <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.07em;margin-bottom:10px">완료 항목 — 날짜별 아카이브</div>
-          <div id="archiveList"></div>
-        </div>
-      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--t2);letter-spacing:.07em;margin-bottom:12px">완료 항목 — 날짜별 아카이브</div>
+      <div id="archiveList"></div>
     </div>
   </div>
 
-  <!-- MOBILE NAV -->
+  <!-- BOTTOM NAV -->
   <nav class="bnav">
-    <button class="nb active" onclick="swMobile('matrix',this)"><div class="ni">⊞</div>매트릭스</button>
-    <button class="nb" onclick="swMobile('memo',this)"><div class="ni">📝</div>메모</button>
-    <button class="nb" onclick="swMobile('review',this)"><div class="ni">📦</div>아카이브</button>
+    <button class="nb active" onclick="swAll('matrix',this)"><div class="ni">⊞</div>매트릭스</button>
+    <button class="nb" onclick="swAll('memo',this)"><div class="ni">📝</div>메모장</button>
+    <button class="nb" onclick="swAll('review',this)"><div class="ni">📦</div>완료 아카이브</button>
   </nav>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
 const QM={
-  q1:{name:'지금 당장',sub:'긴급+중요',cls:'q1c',color:'var(--red)'},
-  q2:{name:'일정 잡아서',sub:'중요·여유',cls:'q2c',color:'var(--amb)'},
-  q3:{name:'빠르게 처리',sub:'긴급·덜중요',cls:'q3c',color:'var(--blu)'},
-  q4:{name:'보류/버림',sub:'낮은 순위',cls:'q4c',color:'var(--gry)'}
+  q1:{name:'긴급O 중요O',sub:'',cls:'q1c',color:'var(--red)'},
+  q2:{name:'긴급X 중요O',sub:'',cls:'q2c',color:'var(--amb)'},
+  q3:{name:'긴급O 중요X',sub:'',cls:'q3c',color:'var(--blu)'},
+  q4:{name:'긴급X 중요X',sub:'',cls:'q4c',color:'var(--gry)'}
 };
 const QKEYS=['q1','q2','q3','q4'];
 const REVS=['Q1 작업을 완료했나?','Q2 작업을 최소 2개 진행했나?','Q4에서 버릴 것을 버렸나?','다음 주 포커스를 정했나?','인박스를 사분면으로 분류했나?','팀에 위임할 것을 위임했나?'];
@@ -484,7 +458,7 @@ function renderMatrix(){
     return `<div class="qcard ${m.cls}">
       <div class="qcard-hd">
         <div class="qdot"></div>
-        <div class="qn">${m.name} <span class="qsub">${m.sub}</span></div>
+        <div class="qn">${m.name}</div>
         <div class="qcnt">${active.length}</div>
       </div>
       <div class="qtask-list">
@@ -770,23 +744,15 @@ function updateMemoFooter(){
   document.getElementById('memoFooter').textContent=len>0?`${len}자 · 자동저장됨`:'';
 }
 
-function sw(v,btn){
-  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-  document.getElementById('pane-'+v).classList.add('on');
-  btn.classList.add('active');
-  if(v==='review'){renderReview();}
-}
-function swMobile(v,btn){
+function sw(v,btn){swAll(v,btn);}
+function swAll(v,btn){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   document.getElementById('pane-'+v).classList.add('on');
   btn.classList.add('active');
-  // sync PC tabs
-  const map={matrix:0,memo:1,review:2};
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===map[v]));
   if(v==='review'){renderReview();}
 }
+function swMobile(v,btn){swAll(v,btn);}
 
 function toast(msg){
   const t=document.getElementById('toast');
