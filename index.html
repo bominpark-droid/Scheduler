@@ -75,10 +75,10 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
 
 /* ─── MATRIX GRID ─── */
 .matrix-grid{display:grid;gap:10px;margin-bottom:12px}
-/* PC: 4 columns */
+/* PC: 2x2 grid */
 @media(min-width:768px){
-  .matrix-grid{grid-template-columns:repeat(4,1fr)}
-  .qcard{min-height:0}
+  .matrix-grid{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .qcard{min-height:280px}
 }
 /* Mobile: 2x2 */
 @media(max-width:767px){
@@ -101,9 +101,9 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
 .q3c .qdot{background:var(--blu)}.q3c .qn{color:var(--blu)}.q3c .qcnt{background:var(--bbg);color:var(--blu)}
 .q4c .qdot{background:var(--gry)}.q4c .qn{color:var(--gry)}.q4c .qcnt{background:var(--gbg);color:var(--gry)}
 
-/* PC: show all tasks, no scroll cap */
-@media(min-width:768px){.qtask-list{overflow:visible;max-height:none}}
-@media(max-width:767px){.qtask-list{overflow-y:auto;max-height:220px}}
+/* PC: show all tasks */
+@media(min-width:768px){.qtask-list{overflow-y:auto;max-height:320px}}
+@media(max-width:767px){.qtask-list{overflow-y:auto;max-height:200px}}
 
 /* TASK ITEM */
 .ti{display:flex;align-items:flex-start;gap:6px;padding:8px 12px;border-bottom:1px solid var(--b1);position:relative;group:true}
@@ -350,7 +350,6 @@ const DEF_EMPTY={
 };
 
 // ── Google Sheets 연동 설정 ──────────────────────────
-// Apps Script 배포 후 아래 URL을 교체하세요
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyCD-kTh8SF2JkcUsEeOHQ84G_4_7QlgAu8_Gruxtt8egPtQIZQQ-Ispst2E4HrXJkl/exec';
 // ────────────────────────────────────────────────────
 
@@ -366,22 +365,40 @@ let todayList=ld('sp4_today',[]);
 let revDone=ld('sp4_rev',new Array(REVS.length).fill(false));
 let isSyncing=false;
 let lastSyncTime=null;
+let _saveTimer=null;
 
-// ── Sheets 동기화 함수들 ──────────────────────────────
+// ── JSONP 헬퍼 ───────────────────────────────────────
+function jsonp(url){
+  return new Promise((resolve,reject)=>{
+    const cb='_cb'+Date.now();
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{
+      cleanup();reject(new Error('timeout'));
+    },10000);
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[cb];
+      if(script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cb]=function(data){cleanup();resolve(data);};
+    script.src=url+(url.includes('?')?'&':'?')+'callback='+cb;
+    script.onerror=()=>{cleanup();reject(new Error('script error'));};
+    document.head.appendChild(script);
+  });
+}
+
+// ── 동기화 함수들 ─────────────────────────────────────
 async function syncFromSheets(){
-  if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
+  if(!SHEETS_URL) return;
   try{
     showSyncStatus('동기화 중...',false);
-    const res=await fetch(SHEETS_URL+'?action=load',{redirect:'follow'});
-    const data=await res.json();
-    if(data.tasks){
-      S=data.tasks;
-      sv('sp4_tasks',S);
-    }
+    const data=await jsonp(SHEETS_URL+'?action=load');
+    if(data.error) throw new Error(data.error);
+    if(data.tasks){S=data.tasks;sv('sp4_tasks',S);}
     if(data.inbox){inbox=data.inbox;sv('sp4_inbox',inbox);}
-    if(data.focus){
-      document.getElementById('focusInp').value=data.focus;
-      localStorage.setItem('sp4_focus',data.focus);
+    if(data.focus!==undefined){
+      const fi=document.getElementById('focusInp');
+      if(fi&&!fi._editing){fi.value=data.focus;localStorage.setItem('sp4_focus',data.focus);}
     }
     lastSyncTime=new Date();
     showSyncStatus('동기화 완료 '+fmtTime(lastSyncTime),false);
@@ -391,32 +408,40 @@ async function syncFromSheets(){
   }
 }
 
-async function saveToSheets(payload){
-  if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE'){sv('sp4_tasks',S);return;}
-  sv('sp4_tasks',S);
+function scheduleSave(){
+  sv('sp4_tasks',S); // 로컬 즉시 저장
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>pushToSheets(),1500);
+}
+
+async function pushToSheets(){
+  if(!SHEETS_URL) return;
   try{
-    // GET 방식으로 저장 (CORS 우회)
-    const encoded=encodeURIComponent(JSON.stringify(payload));
-    await fetch(SHEETS_URL+'?action=save&data='+encoded,{redirect:'follow'});
-    lastSyncTime=new Date();
-    showSyncStatus('저장됨 '+fmtTime(lastSyncTime),false);
+    const payload={
+      action:'save',
+      tasks:S,
+      inbox,
+      focus:localStorage.getItem('sp4_focus')||''
+    };
+    const data=await jsonp(SHEETS_URL+'?action=save&data='+encodeURIComponent(JSON.stringify(payload)));
+    if(data.ok){
+      lastSyncTime=new Date();
+      showSyncStatus('저장됨 '+fmtTime(lastSyncTime),false);
+    }
   }catch(e){
     showSyncStatus('오프라인 — 로컬에만 저장됨',true);
   }
 }
 
 function showSyncStatus(msg,isErr){
-  let el=document.getElementById('syncStatus');
+  const el=document.getElementById('syncStatus');
   if(!el)return;
   el.textContent=msg;
   el.style.color=isErr?'var(--red)':'var(--t3)';
 }
-
 function fmtTime(d){return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
 
-function saveTasks(){
-  saveToSheets({action:'save',tasks:S,inbox,focus:localStorage.getItem('sp4_focus')||''});
-}
+function saveTasks(){scheduleSave();}
 
 function daysLeft(d){
   if(!d)return null;
@@ -428,8 +453,7 @@ function daysLeft(d){
 function tagHTML(t){
   let h='';
   if(t.type==='proj')h+='<span class="tag tg-p">프로젝트</span>';
-  if(t.assign==='solo')h+='<span class="tag tg-s">나</span>';
-  else if(t.assign==='team')h+='<span class="tag tg-t">팀</span>';
+  if(t.assign==='team')h+='<span class="tag tg-t">팀</span>';
   else if(t.assign==='wait')h+='<span class="tag tg-w">보류</span>';
   if(t.deadline){
     const d=daysLeft(t.deadline);
@@ -466,7 +490,7 @@ function renderMatrix(){
             <div class="tchk" onclick="completeTask('${q}','${t.id}');event.stopPropagation()">
               <svg class="ck" width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1 4.5l2.5 2.5 4.5-4.5" stroke="#0f0f0f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
-            <div class="tbody" onclick="toggleToday('${q}','${t.id}')">
+            <div class="tbody" onclick="toggleToday('${q}','${t.id}');event.stopPropagation()">>
               <div class="tt" ondblclick="startEdit(event,'${q}','${t.id}')" title="더블클릭해서 이름 수정">${t.text}</div>
               <div class="tmeta">${tagHTML(t)}</div>
               ${t.next?`<div class="tnext">→ ${t.next}</div>`:''}
