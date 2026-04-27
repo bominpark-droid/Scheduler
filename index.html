@@ -372,7 +372,7 @@ async function syncFromSheets(){
   if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
   try{
     showSyncStatus('동기화 중...',false);
-    const res=await fetch(SHEETS_URL+'?action=load');
+    const res=await fetch(SHEETS_URL+'?action=load',{redirect:'follow'});
     const data=await res.json();
     if(data.tasks){
       S=data.tasks;
@@ -393,13 +393,11 @@ async function syncFromSheets(){
 
 async function saveToSheets(payload){
   if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE'){sv('sp4_tasks',S);return;}
-  sv('sp4_tasks',S); // 로컬 먼저 저장 (오프라인 대비)
+  sv('sp4_tasks',S);
   try{
-    await fetch(SHEETS_URL,{
-      method:'POST',
-      body:JSON.stringify(payload),
-      headers:{'Content-Type':'application/json'}
-    });
+    // GET 방식으로 저장 (CORS 우회)
+    const encoded=encodeURIComponent(JSON.stringify(payload));
+    await fetch(SHEETS_URL+'?action=save&data='+encoded,{redirect:'follow'});
     lastSyncTime=new Date();
     showSyncStatus('저장됨 '+fmtTime(lastSyncTime),false);
   }catch(e){
