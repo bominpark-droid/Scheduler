@@ -457,6 +457,7 @@ function toggleToday(q,id){
     toast('오늘 할 일 '+todayItems.length+'번째 추가');
   }
   lsSet('today',todayItems);
+  scheduleSave();
   renderMatrix();
   renderToday();
 }
@@ -490,9 +491,9 @@ function renderToday(){
   }).join('');
 }
 
-function tdUp(i){if(i===0)return;[todayItems[i-1],todayItems[i]]=[todayItems[i],todayItems[i-1]];lsSet('today',todayItems);renderToday();}
-function tdDn(i){if(i>=todayItems.length-1)return;[todayItems[i],todayItems[i+1]]=[todayItems[i+1],todayItems[i]];lsSet('today',todayItems);renderToday();}
-function tdDel(i){todayItems.splice(i,1);lsSet('today',todayItems);renderToday();renderMatrix();}
+function tdUp(i){if(i===0)return;[todayItems[i-1],todayItems[i]]=[todayItems[i],todayItems[i-1]];lsSet('today',todayItems);scheduleSave();renderToday();}
+function tdDn(i){if(i>=todayItems.length-1)return;[todayItems[i],todayItems[i+1]]=[todayItems[i+1],todayItems[i]];lsSet('today',todayItems);scheduleSave();renderToday();}
+function tdDel(i){todayItems.splice(i,1);lsSet('today',todayItems);scheduleSave();renderToday();renderMatrix();}
 
 // ── 태스크 완료 ───────────────────────────────────────
 function completeTask(q,id){
