@@ -366,6 +366,7 @@ async function syncFromSheets(){
     if(d.error)throw new Error(d.error);
     if(d.tasks){tasks=d.tasks;lsSet('tasks',tasks);}
     if(d.inbox){inbox=d.inbox;lsSet('inbox',inbox);}
+    if(d.today){todayItems=d.today;lsSet('today',todayItems);}
     if(d.focus!==undefined){
       const fi=document.getElementById('focusInp');
       if(fi){fi.value=d.focus;lsSet('focus',d.focus);}
@@ -382,7 +383,8 @@ async function syncFromSheets(){
 }
 
 function scheduleSave(){
-  lsSet('tasks',tasks); // 로컬 즉시 저장 (오프라인 대비)
+  lsSet('tasks',tasks);
+  lsSet('today',todayItems);
   clearTimeout(saveTimer);
   saveTimer=setTimeout(pushSave,2000);
 }
@@ -390,7 +392,7 @@ function scheduleSave(){
 async function pushSave(){
   if(!SHEETS_URL)return;
   try{
-    const payload={action:'save',tasks,inbox,focus:lsGet('focus',''),user:CURRENT_USER};
+    const payload={action:'save',tasks,inbox,today:todayItems,focus:lsGet('focus',''),user:CURRENT_USER};
     const d=await jsonpCall(SHEETS_URL+'?action=save&user='+encodeURIComponent(CURRENT_USER)+'&data='+encodeURIComponent(JSON.stringify(payload)));
     if(d.ok){lastSync=new Date();setSyncStatus('저장됨 '+ft(lastSync),false);}
   }catch(e){
