@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#ffaa00">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SP대시보드">
+<link rel="manifest" href="manifest.json">
 <title>SP미디어텍</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -199,6 +204,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
     <div class="hdr-row">
       <div class="logo">SP미디어텍</div>
       <div class="hdr-right">
+        <span id="userLabel" style="font-size:11px;color:var(--amb);font-weight:600"></span>
         <span id="syncStatus">로컬 모드</span>
         <button class="sync-btn" onclick="syncFromSheets()">↻ 동기화</button>
         <div class="dt" id="dtLabel"></div>
@@ -263,7 +269,12 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
 <div class="toast" id="toast"></div>
 
 <script>
-// ── 상수 ──────────────────────────────────────────────
+// ── 사용자 설정 ───────────────────────────────────────
+const URL_PARAMS = new URLSearchParams(window.location.search);
+const CURRENT_USER = URL_PARAMS.get('user') || 'default';
+const STORAGE_KEY = 'fin_' + CURRENT_USER;
+
+// ── Google Sheets 연동 ────────────────────────────────
 const SHEETS_URL='https://script.google.com/macros/s/AKfycbyCD-kTh8SF2JkcUsEeOHQ84G_4_7QlgAu8_Gruxtt8egPtQIZQQ-Ispst2E4HrXJkl/exec';
 const QKEYS=['q1','q2','q3','q4'];
 const QM={
@@ -275,64 +286,117 @@ const QM={
 const EMPTY={q1:[],q2:[],q3:[],q4:[]};
 
 // ── 로컬스토리지 ──────────────────────────────────────
-function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch{return def;}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function lsGet(k,def){try{const v=localStorage.getItem(STORAGE_KEY+'_'+k);return v?JSON.parse(v):def;}catch{return def;}}
+function lsSet(k,v){try{localStorage.setItem(STORAGE_KEY+'_'+k,JSON.stringify(v));}catch{}}
 
 // ── 상태 ──────────────────────────────────────────────
-let tasks=lsGet('fin_tasks',{q1:[],q2:[],q3:[],q4:[]});
-let inbox=lsGet('fin_inbox',[]);
-let todayItems=lsGet('fin_today',[]);
+let tasks=lsGet('tasks',{q1:[],q2:[],q3:[],q4:[]});
+let inbox=lsGet('inbox',[]);
+let todayItems=lsGet('today',[]);
 let lastSync=null;
 let saveTimer=null;
 
+// 이전 버전 데이터 마이그레이션 (fin_tasks → tasks)
+function migrateOldData(){
+  try{
+    const oldKeys=['fin_tasks','fin_inbox','fin_today','fin_focus'];
+    const newKeyMap={fin_tasks:'tasks',fin_inbox:'inbox',fin_today:'today',fin_focus:'focus'};
+    let migrated=false;
+    oldKeys.forEach(ok=>{
+      const old=localStorage.getItem(ok);
+      const newKey=STORAGE_KEY+'_'+newKeyMap[ok];
+      if(old&&!localStorage.getItem(newKey)){
+        localStorage.setItem(newKey,old);
+        migrated=true;
+      }
+    });
+    if(migrated){
+      tasks=lsGet('tasks',{q1:[],q2:[],q3:[],q4:[]});
+      inbox=lsGet('inbox',[]);
+      todayItems=lsGet('today',[]);
+    }
+  }catch(e){}
+}
+migrateOldData();
+
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 
-// ── JSONP ─────────────────────────────────────────────
-function jsonpCall(url){
+// ── JSONP (재시도 포함) ───────────────────────────────
+function jsonpCall(url, retries=3){
   return new Promise((res,rej)=>{
-    const cb='_jcb'+Date.now();
-    const el=document.createElement('script');
-    const t=setTimeout(()=>{cleanup();rej(new Error('timeout'));},12000);
-    function cleanup(){clearTimeout(t);delete window[cb];el.remove();}
-    window[cb]=d=>{cleanup();res(d);};
-    el.src=url+'&callback='+cb;
-    el.onerror=()=>{cleanup();rej(new Error('load error'));};
-    document.head.appendChild(el);
+    let attempts=0;
+    function attempt(){
+      attempts++;
+      const cb='_jcb'+Date.now()+'_'+attempts;
+      const el=document.createElement('script');
+      const t=setTimeout(()=>{
+        cleanup();
+        if(attempts<retries){
+          setTimeout(attempt, 1000*attempts); // 점점 길게 재시도
+        } else {
+          rej(new Error('timeout after '+retries+' attempts'));
+        }
+      }, 15000);
+      function cleanup(){clearTimeout(t);delete window[cb];if(el.parentNode)el.remove();}
+      window[cb]=d=>{cleanup();res(d);};
+      el.src=url+'&callback='+cb+'&t='+Date.now();
+      el.onerror=()=>{
+        cleanup();
+        if(attempts<retries){
+          setTimeout(attempt, 1000*attempts);
+        } else {
+          rej(new Error('load error'));
+        }
+      };
+      document.head.appendChild(el);
+    }
+    attempt();
   });
 }
 
 // ── 동기화 ────────────────────────────────────────────
+let syncInProgress=false;
+
 async function syncFromSheets(){
-  if(!SHEETS_URL)return;
+  if(!SHEETS_URL||syncInProgress)return;
+  syncInProgress=true;
   setSyncStatus('동기화 중...',false);
   try{
-    const d=await jsonpCall(SHEETS_URL+'?action=load');
+    const d=await jsonpCall(SHEETS_URL+'?action=load&user='+encodeURIComponent(CURRENT_USER));
     if(d.error)throw new Error(d.error);
-    if(d.tasks){tasks=d.tasks;lsSet('fin_tasks',tasks);}
-    if(d.inbox){inbox=d.inbox;lsSet('fin_inbox',inbox);}
+    if(d.tasks){tasks=d.tasks;lsSet('tasks',tasks);}
+    if(d.inbox){inbox=d.inbox;lsSet('inbox',inbox);}
+    if(d.today){todayItems=d.today;lsSet('today',todayItems);}
     if(d.focus!==undefined){
       const fi=document.getElementById('focusInp');
-      if(fi){fi.value=d.focus;localStorage.setItem('fin_focus',d.focus);}
+      if(fi){fi.value=d.focus;lsSet('focus',d.focus);}
     }
     lastSync=new Date();
     setSyncStatus('동기화 완료 '+ft(lastSync),false);
     renderAll();
-  }catch(e){setSyncStatus('오프라인 — 로컬 데이터 사용 중',true);}
+  }catch(e){
+    setSyncStatus('오프라인 — 로컬 데이터 사용 중',true);
+  } finally {
+    syncInProgress=false;
+  }
 }
 
 function scheduleSave(){
-  lsSet('fin_tasks',tasks);
+  lsSet('tasks',tasks);
+  lsSet('today',todayItems);
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(pushSave,1500);
+  saveTimer=setTimeout(pushSave,2000);
 }
 
 async function pushSave(){
   if(!SHEETS_URL)return;
   try{
-    const payload={action:'save',tasks,inbox,focus:localStorage.getItem('fin_focus')||''};
-    const d=await jsonpCall(SHEETS_URL+'?action=save&data='+encodeURIComponent(JSON.stringify(payload)));
+    const payload={action:'save',tasks,inbox,today:todayItems,focus:lsGet('focus',''),user:CURRENT_USER};
+    const d=await jsonpCall(SHEETS_URL+'?action=save&user='+encodeURIComponent(CURRENT_USER)+'&data='+encodeURIComponent(JSON.stringify(payload)));
     if(d.ok){lastSync=new Date();setSyncStatus('저장됨 '+ft(lastSync),false);}
-  }catch(e){setSyncStatus('오프라인 — 로컬에만 저장됨',true);}
+  }catch(e){
+    setSyncStatus('오프라인 — 로컬에 저장됨',true);
+  }
 }
 
 function setSyncStatus(msg,err){
@@ -390,7 +454,7 @@ function toggleToday(q,id){
     todayItems.push({id,q,text:task.text});
     toast('오늘 할 일 '+todayItems.length+'번째 추가');
   }
-  lsSet('fin_today',todayItems);
+  lsSet('today',todayItems);
   renderMatrix();
   renderToday();
 }
@@ -424,9 +488,9 @@ function renderToday(){
   }).join('');
 }
 
-function tdUp(i){if(i===0)return;[todayItems[i-1],todayItems[i]]=[todayItems[i],todayItems[i-1]];lsSet('fin_today',todayItems);renderToday();}
-function tdDn(i){if(i>=todayItems.length-1)return;[todayItems[i],todayItems[i+1]]=[todayItems[i+1],todayItems[i]];lsSet('fin_today',todayItems);renderToday();}
-function tdDel(i){todayItems.splice(i,1);lsSet('fin_today',todayItems);renderToday();renderMatrix();}
+function tdUp(i){if(i===0)return;[todayItems[i-1],todayItems[i]]=[todayItems[i],todayItems[i-1]];lsSet('today',todayItems);renderToday();}
+function tdDn(i){if(i>=todayItems.length-1)return;[todayItems[i],todayItems[i+1]]=[todayItems[i+1],todayItems[i]];lsSet('today',todayItems);renderToday();}
+function tdDel(i){todayItems.splice(i,1);lsSet('today',todayItems);renderToday();renderMatrix();}
 
 // ── 태스크 완료 ───────────────────────────────────────
 function completeTask(q,id){
@@ -436,7 +500,7 @@ function completeTask(q,id){
   task.doneAt=new Date().toISOString();
   // 오늘 목록에서도 제거
   const ti=todayItems.findIndex(x=>x.id===id);
-  if(ti>=0){todayItems.splice(ti,1);lsSet('fin_today',todayItems);}
+  if(ti>=0){todayItems.splice(ti,1);lsSet('today',todayItems);}
   scheduleSave();
   renderAll();
   toast('완료! ✓');
@@ -452,7 +516,7 @@ function undoTask(q,id){
 function deleteTask(q,id){
   tasks[q]=tasks[q].filter(x=>x.id!==id);
   const ti=todayItems.findIndex(x=>x.id===id);
-  if(ti>=0){todayItems.splice(ti,1);lsSet('fin_today',todayItems);}
+  if(ti>=0){todayItems.splice(ti,1);lsSet('today',todayItems);}
   scheduleSave();renderAll();toast('삭제했어요');
 }
 
@@ -469,7 +533,7 @@ function moveTask(fromQ,id,toQ){
   tasks[toQ].push(task);
   const ti=todayItems.find(x=>x.id===id);
   if(ti)ti.q=toQ;
-  lsSet('fin_today',todayItems);
+  lsSet('today',todayItems);
   scheduleSave();renderAll();toast(toQ.toUpperCase()+'로 이동했어요');
 }
 
@@ -549,7 +613,7 @@ function startEdit(e,q,id){
       task.text=nv;
       const ti=todayItems.find(x=>x.id===id);
       if(ti)ti.text=nv;
-      lsSet('fin_today',todayItems);
+      lsSet('today',todayItems);
       scheduleSave();renderMatrix();renderToday();toast('수정됐어요');
     }else{el.textContent=orig;}
   }
@@ -563,17 +627,17 @@ function quickAdd(){
   const v=inp.value.trim();
   if(!v)return;
   inbox.push(v);inp.value='';
-  lsSet('fin_inbox',inbox);renderInbox();toast('인박스에 추가 → 분류하세요');
+  lsSet('inbox',inbox);renderInbox();toast('인박스에 추가 → 분류하세요');
 }
 
 function sortInbox(i,q){
   const text=inbox[i];
   inbox.splice(i,1);
   tasks[q].push({id:uid(),text,type:'task',assign:'solo',deadline:'',done:false,doneAt:null});
-  lsSet('fin_inbox',inbox);scheduleSave();renderAll();toast(q.toUpperCase()+'로 분류했어요');
+  lsSet('inbox',inbox);scheduleSave();renderAll();toast(q.toUpperCase()+'로 분류했어요');
 }
 
-function delInbox(i){inbox.splice(i,1);lsSet('fin_inbox',inbox);renderInbox();}
+function delInbox(i){inbox.splice(i,1);lsSet('inbox',inbox);renderInbox();}
 
 function renderInbox(){
   const wrap=document.getElementById('ibWrap');
@@ -681,9 +745,9 @@ function qbg(q){return{q1:'var(--rbg)',q2:'var(--abg)',q3:'var(--bbg)',q4:'var(-
 function initMemo(){
   const ta=document.getElementById('memoArea');
   if(!ta)return;
-  ta.value=localStorage.getItem('fin_memo')||'';
+  ta.value=localStorage.getItem(STORAGE_KEY+'_memo')||'';
   ta.addEventListener('input',()=>{
-    localStorage.setItem('fin_memo',ta.value);
+    localStorage.setItem(STORAGE_KEY+'_memo',ta.value);
     const mf=document.getElementById('memoFooter');
     if(mf)mf.textContent=ta.value.length>0?ta.value.length+'자 · 자동저장됨':'';
   });
@@ -719,19 +783,29 @@ function renderAll(){
 // ── 초기화 ────────────────────────────────────────────
 document.getElementById('qi').addEventListener('keydown',e=>{if(e.key==='Enter')quickAdd();});
 const fi=document.getElementById('focusInp');
-fi.value=localStorage.getItem('fin_focus')||'';
+fi.value=lsGet('focus','')||'';
 fi.addEventListener('input',()=>{
-  localStorage.setItem('fin_focus',fi.value);
+  lsSet('focus',fi.value);
   clearTimeout(fi._st);
   fi._st=setTimeout(()=>pushSave(),2000);
 });
 const DAY=['일','월','화','수','목','금','토'];
 const NOW=new Date();
 document.getElementById('dtLabel').textContent=(NOW.getMonth()+1)+'월 '+NOW.getDate()+'일 ('+DAY[NOW.getDay()]+')';
+// 사용자 이름 표시
+const ul=document.getElementById('userLabel');
+if(ul&&CURRENT_USER!=='default') ul.textContent=CURRENT_USER;
 initMemo();
 renderAll();
 syncFromSheets();
 setInterval(syncFromSheets,5*60*1000);
+
+// Service Worker 등록 (PWA)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/Scheduler/sw.js')
+    .then(()=>console.log('SW registered'))
+    .catch(e=>console.log('SW error:',e));
+}
 </script>
 </body>
 </html>
