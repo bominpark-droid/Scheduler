@@ -1,0 +1,25 @@
+{
+  "name": "SP미디어텍 대시보드",
+  "short_name": "SP대시보드",
+  "description": "아이젠하워 매트릭스 기반 업무 관리 대시보드",
+  "start_url": "/Scheduler/",
+  "scope": "/Scheduler/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#ffaa00",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
