@@ -393,7 +393,7 @@ async function pushSave(){
   if(!SHEETS_URL)return;
   try{
     const payload={action:'save',tasks,inbox,today:todayItems,focus:lsGet('focus',''),user:CURRENT_USER};
-    const d=await jsonpCall(SHEETS_URL+'?action=save&user='+encodeURIComponent(CURRENT_USER)+'&data='+encodeURIComponent(JSON.stringify(payload)));
+    const d=await jsonpCall(SHEETS_URL+'?action=save&user='+encodeURIComponent(CURRENT_USER)+'&data='+encodeURIComponent(JSON.stringify(payload))+'&_t='+Date.now());
     if(d.ok){lastSync=new Date();setSyncStatus('저장됨 '+ft(lastSync),false);}
   }catch(e){
     // 저장 실패해도 로컬에는 이미 저장돼 있으므로 데이터 유실 없음
