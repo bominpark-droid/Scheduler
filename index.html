@@ -236,7 +236,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
 const URL_PARAMS=new URLSearchParams(window.location.search);
 const CURRENT_USER=URL_PARAMS.get('user')||'default';
 const STORAGE_KEY='fin_'+CURRENT_USER;
-const SHEETS_URL='https://script.google.com/macros/s/AKfycbzzeU8vb7V_4zaBCXZOAphofpWtMqTbUjRBANlT0-rHzpy-p6P9o0UGRIcOGV3n6md2/exec';
+const SHEETS_URL='https://script.google.com/macros/s/AKfycbwrCIKy2FUzjTBBQYy79SSbLQXM87nI08fo3C3w_gWdF5xhlRrGd9cfxt4Cx-KLhf5L/exec';
 const QKEYS=['q1','q2','q3','q4'];
 const QM={q1:{name:'긴급O 중요O',sub:'지금 처리',cls:'q1c',color:'var(--red)'},q2:{name:'긴급X 중요O',sub:'시간 확보',cls:'q2c',color:'var(--amb)'},q3:{name:'긴급O 중요X',sub:'권한 위임',cls:'q3c',color:'var(--blu)'},q4:{name:'긴급X 중요X',sub:'완전 삭제',cls:'q4c',color:'var(--gry)'}};
 function lsGet(k,def){try{const v=localStorage.getItem(STORAGE_KEY+'_'+k);return v?JSON.parse(v):def;}catch{return def;}}
