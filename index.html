@@ -401,17 +401,21 @@ async function loadFromServer(manual){
     const d=await jsonpCall(SHEETS_URL+'?action=load&user='+encodeURIComponent(CURRENT_USER));
     if(d.error)throw new Error(d.error);
     const sv=d.state||{};
-    const serverNewer=!localUpdatedAt||(sv.updatedAt&&sv.updatedAt>=localUpdatedAt);
-    const hasPending=dirty||pendAdd.length>0||pendRem.length>0;
+    const hasServerState=!!(sv&&sv.tasks);
+    /* 최신 타임스탬프가 이긴다 — 오래 방치된 기기의 낡은 로컬 데이터가
+       서버의 최신 데이터를 덮어쓰는 사고를 원천 차단 */
+    const localNewer=!!localUpdatedAt&&(!sv.updatedAt||localUpdatedAt>sv.updatedAt);
 
-    if(serverNewer&&!hasPending){
+    if(hasServerState&&!localNewer){
       tasks=sv.tasks||{q1:[],q2:[],q3:[],q4:[]};
       QKEYS.forEach(q=>{if(!tasks[q])tasks[q]=[];});
       inbox=sv.inbox||[]; todayItems=sv.today||[]; focus=sv.focus||'';
       if(sv.memo!==undefined&&(sv.memo||!memo))memo=sv.memo;   // 서버 메모가 비어있으면 로컬 유지
       localUpdatedAt=sv.updatedAt||localUpdatedAt;
-    }else if(hasPending){
-      setTimeout(pushSave,200);   // 내 변경분이 우선 — 서버로 밀어올림
+      dirty=false;   // 서버가 더 최신 → 낡은 로컬 상태 변경분은 폐기
+    }
+    if(localNewer||pendAdd.length>0||pendRem.length>0){
+      setTimeout(pushSave,200);   // 내 상태가 최신이거나 전송 대기 완료기록이 있으면 밀어올림
     }
 
     /* 아카이브: 서버 기록 + 아직 전송 안 된 로컬 기록 합치기 */
