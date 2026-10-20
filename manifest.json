@@ -1,12 +1,12 @@
 {
-  "name": "SP미디어텍 대시보드",
-  "short_name": "SP대시보드",
-  "description": "아이젠하워 매트릭스 기반 업무 관리 대시보드",
+  "name": "스케줄러",
+  "short_name": "스케줄러",
+  "description": "박보민 대표 할 일·순서 관리 (AI 비서 연동)",
   "start_url": "/Scheduler/",
   "scope": "/Scheduler/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#ffaa00",
+  "background_color": "#EEF1F0",
+  "theme_color": "#EEF1F0",
   "orientation": "any",
   "icons": [
     {

@@ -1,38 +1,11 @@
-const CACHE = 'sp-personal-v3';
-const ASSETS = [
-  '/Scheduler/',
-  '/Scheduler/index.html',
-  '/Scheduler/manifest.json'
-];
-
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
-  );
-  self.skipWaiting();
-});
-
+// v4: 예전 버전 캐시가 남아 옛 화면이 뜨는 문제를 막기 위해, 이 서비스워커는 스스로를 지우고 캐시를 비운다.
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', e => {
-  if (e.request.url.includes('script.google.com')) return;
-  if (e.request.url.includes('googleapis.com')) return;
-  e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        if (res && res.status === 200 && e.request.method === 'GET') {
-          const clone = res.clone();
-          caches.open(CACHE).then(cache => cache.put(e.request, clone));
-        }
-        return res;
-      })
-      .catch(() => caches.match(e.request))
-  );
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+    await self.registration.unregister();
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach(c => c.navigate(c.url));
+  })());
 });
