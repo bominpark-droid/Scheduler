@@ -222,8 +222,8 @@ nav.tabs button.on .n{color:var(--bg);opacity:.7}
 
 <div class="sheet" id="settings" role="dialog" aria-modal="true" aria-label="연결 설정">
   <div class="sheet-top"><span class="handle"></span><button class="close" data-close>닫기</button></div>
-  <div class="field"><label>Apps Script 웹 앱 주소</label><input id="sUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
-  <div class="field"><label>토큰 (Config 탭 ADMIN_TOKEN과 같게)</label><input id="sToken"></div>
+  <div class="field"><label>Apps Script 웹 앱 주소</label><input id="sUrl" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec"></div>
+  <div class="field"><label>토큰 (Config 탭 ADMIN_TOKEN과 똑같이, 대소문자 구분)</label><input id="sToken" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"></div>
   <div class="field"><label>하루에 쓸 수 있는 시간(분)</label><input id="sBudget" type="number" inputmode="numeric"></div>
   <p class="note" id="sInfo">이 기기에만 저장됩니다. 할 일의 원본은 구글 시트입니다.</p>
   <div class="acts"><button class="del" id="sTest">연결 확인</button><button class="save" id="sSave">저장</button></div>
@@ -279,13 +279,14 @@ function setSync(state, text){
 }
 function syncLabel(){
   if(!S.url) return setSync('retry','설정 필요');
+  if(authBad) return setSync('retry', `토큰 확인 필요 · 대기 ${queue.length}건`);
   if(flushing) return setSync('saving','저장 중');
   if(queue.length) return setSync('retry', `저장 대기 ${queue.length}건 · 다시 시도`);
   setSync('', '저장됨');
 }
 
 // ---------- 서버 통신 ----------
-let flushing=false, flushPromise=null, retryTimer=null, backoff=0;
+let flushing=false, flushPromise=null, retryTimer=null, backoff=0, authBad=false;
 
 function enqueue(op){
   op._q = uid(); queue.push(op); saveLocal(); flush();
@@ -293,7 +294,7 @@ function enqueue(op){
 
 function flush(){
   if(flushing) return flushPromise;
-  if(!queue.length || !S.url || !serverOk){ syncLabel(); return Promise.resolve(); }
+  if(!queue.length || !S.url || !serverOk || authBad){ syncLabel(); return Promise.resolve(); }
   clearTimeout(retryTimer);
   flushing=true; syncLabel();
   const ops=queue.slice(0,30);
@@ -303,7 +304,7 @@ function flush(){
       const res=await fetch(S.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
         body:JSON.stringify({action:'batch',token:S.token,who:'app',ops:ops.map(({_q,...o})=>o)})});
       const j=await res.json();
-      if(j.error==='unauthorized'){ queue=[]; saveLocal(); toast('토큰이 맞지 않아 저장하지 못했습니다. 설정에서 토큰을 확인해 주세요.'); openSettings(); reload=true; return; }
+      if(j.error==='unauthorized'){ authBad=true; openSettings(); $('#sInfo').textContent=`토큰이 시트와 달라 저장을 멈췄습니다. 대소문자까지 똑같이 고친 뒤 저장을 누르면, 기다리던 ${queue.length}건이 바로 저장됩니다.`; return; }
       if(!j.results){ throw new Error(j.error||'응답 없음'); }
       const finished=new Set(); const fails=[];
       j.results.forEach((r,i)=>{
@@ -604,13 +605,15 @@ $('#gear').onclick=openSettings;
 $('#sSave').onclick=()=>{
   S.url=$('#sUrl').value.trim(); S.token=$('#sToken').value.trim(); S.budget=+$('#sBudget').value||360;
   store.set('sv3_url',S.url); store.set('sv3_token',S.token); store.set('sv3_budget',String(S.budget));
-  closeSheets(); load();
+  authBad=false; backoff=0; closeSheets(); load();
 };
 $('#sTest').onclick=async()=>{
   const u=$('#sUrl').value.trim(); if(!u){ $('#sInfo').textContent='주소를 먼저 넣어 주세요.'; return; }
   $('#sInfo').textContent='확인 중…';
   try{ const j=await (await fetch(u+'?action=ping&t='+Date.now())).json();
-    $('#sInfo').textContent = j.version===APP_VERSION ? `연결됨 · 시트 코드 ${j.version}` : '연결은 되지만 시트 코드가 예전 버전입니다. Code.gs를 새로 배포해 주세요.';
+    if(j.version!==APP_VERSION){ $('#sInfo').textContent='연결은 되지만 시트 코드가 예전 버전입니다. Code.gs를 새로 배포해 주세요.'; return; }
+    const a=await (await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'batch',token:$('#sToken').value.trim(),who:'app',ops:[]})})).json();
+    $('#sInfo').textContent = a.error==='unauthorized' ? '주소는 맞지만 토큰이 다릅니다. 대소문자까지 시트 Config 탭과 똑같이 넣어 주세요.' : `연결됨 · 토큰 확인됨 · 시트 코드 ${j.version}`;
   }catch(e){ $('#sInfo').textContent='연결하지 못했습니다. 주소와 배포 접근 권한(모든 사용자)을 확인해 주세요.'; }
 };
 
