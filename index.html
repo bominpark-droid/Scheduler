@@ -146,6 +146,36 @@ nav.tabs button.on .n{color:var(--bg);opacity:.7}
 .acts .save{flex:1;background:var(--accent);color:var(--on-accent)}
 .acts .del{padding:0 18px;background:var(--rec-soft);color:var(--rec)}
 .acts .del.armed{background:var(--rec);color:#fff}
+/* 팀에 맡기기 */
+.handoff{margin-top:18px;padding:14px;border-radius:14px;background:var(--bg)}
+.handoff>summary{list-style:none;cursor:pointer;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.handoff>summary::-webkit-details-marker{display:none}
+.handoff>summary small{font-weight:500;color:var(--ink2)}
+.handoff .seg{background:var(--card)}
+.handoff .seg button.on{background:var(--accent);color:var(--on-accent);box-shadow:none}
+.handoff select,.handoff textarea{background:var(--card)}
+.handoff .go{width:100%;height:46px;margin-top:12px;border-radius:12px;background:var(--ink);color:var(--bg);font-weight:700;font-size:16px}
+.handoff .go:disabled{opacity:.4}
+/* 비서 탭 */
+.sec{margin:16px 2px 6px;display:flex;align-items:baseline;justify-content:space-between}
+.sec b{font-size:15px;font-weight:700}
+.sec span{font-size:13px;color:var(--ink2)}
+.card{display:flex;flex-direction:column;gap:6px;padding:13px 14px;border-top:1px solid var(--line)}
+.card:first-child{border-top:0}
+.card .who{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.card .who b{color:var(--ink);font-weight:600}
+.card .ttl{font-size:15.5px;font-weight:600;word-break:keep-all;overflow-wrap:anywhere}
+.card .act{font-size:14px;color:var(--ink);padding:8px 10px;border-radius:10px;background:var(--accent-soft);word-break:keep-all}
+.card .act b{color:var(--accent);font-weight:700}
+.card .body2{font-size:13.5px;color:var(--ink2);white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;max-height:4.2em;overflow:hidden}
+.card .body2.open{max-height:none}
+.card .btns{display:flex;gap:8px;margin-top:4px}
+.card .btns button{height:36px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:600;background:var(--bg);color:var(--ink2)}
+.card .btns button.pri{background:var(--accent-soft);color:var(--accent)}
+.chip.alert{background:var(--rec-soft);color:var(--rec)}
+.chip.team{background:var(--wait-soft);color:var(--wait)}
+.chip.teamdone{background:#DFF3E8;color:var(--ok)}
+@media (prefers-color-scheme:dark){.chip.teamdone{background:#163A2A}}
 .note{font-size:13px;color:var(--ink2);margin-top:10px;line-height:1.5}
 
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);transform:translate(-50%,10px);z-index:30;
@@ -211,12 +241,20 @@ nav.tabs button.on .n{color:var(--bg);opacity:.7}
     <div class="field"><label>마감</label><input id="eDue" type="date"></div>
     <div class="field"><label>예상 시간(분)</label><input id="eMin" type="number" inputmode="numeric" min="0"></div>
     <div class="field"><label>분류</label><input id="eCat" list="catList" placeholder="예: 영업"></div>
-    <div class="field"><label>프로젝트</label><input id="eProject" placeholder="예: 2차"></div>
+    <div class="field"><label>프로젝트</label><input id="eProject" list="projList" placeholder="본부 프로젝트 이름"></div>
     <div class="field"><label>대기 상대</label><input id="eWait" placeholder="예: 출판사 회신"></div>
     <div class="field"><label>반복</label><select id="eRepeat"><option value="">없음</option><option>매일</option><option>매주</option><option>매월</option><option>월말</option></select></div>
   </div>
   <div class="field"><label>메모</label><textarea id="eMemo" class="memo" rows="3"></textarea></div>
   <div class="field"><label>순서</label><div class="moves"><button id="toTop">맨 위로</button><button id="toBottom">맨 아래로</button></div></div>
+  <details class="handoff" id="handoff" hidden>
+    <summary><span>팀에 맡기기</span><small id="hoHint">수석비서 팀이 대신 처리</small></summary>
+    <div class="field"><label>어느 팀</label><select id="hoTeam"></select></div>
+    <div class="field"><label>지시 내용</label><textarea id="hoText" class="memo" rows="3"></textarea></div>
+    <div class="field"><label>우선순위</label><div class="seg" id="hoPri"></div></div>
+    <button class="go" id="hoGo">팀에 넘기기</button>
+    <p class="note">본부 시트 Orders에 지시가 올라가고, 이 할 일은 <대기>로 바뀝니다. 팀이 끝내면 결과와 함께 <오늘>로 돌아옵니다.</p>
+  </details>
   <div class="acts"><button class="del" id="del">삭제</button><button class="save" id="save">저장</button></div>
 </div>
 
@@ -229,6 +267,7 @@ nav.tabs button.on .n{color:var(--bg);opacity:.7}
   <div class="acts"><button class="del" id="sTest">연결 확인</button><button class="save" id="sSave">저장</button></div>
 </div>
 
+<datalist id="projList"></datalist>
 <datalist id="catList"><option>검수</option><option>유통</option><option>영업</option><option>행정</option><option>제작</option><option>촬영</option><option>홍보</option><option>개발</option><option>개인</option><option>용민휠타</option></datalist>
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="toastAct" hidden>되돌리기</button></div>
 
@@ -236,7 +275,7 @@ nav.tabs button.on .n{color:var(--bg);opacity:.7}
 (function(){
 'use strict';
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'v4';
+const APP_VERSION = 'v5';
 
 // 예전 버전이 남긴 서비스워커·캐시를 지운다 (옛 화면이 계속 뜨는 문제 방지)
 try{ if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{}); }catch(e){}
@@ -250,8 +289,10 @@ const store = {
 };
 const S = { url: store.get('sv3_url',''), token: store.get('sv3_token',''), budget: +store.get('sv3_budget','360')||360 };
 
-const TABS = [['today','오늘'],['now','지금'],['later','나중'],['idea','아이디어'],['wait','대기'],['done','완료']];
+const TABS = [['today','오늘'],['hq','비서'],['now','지금'],['later','나중'],['idea','아이디어'],['wait','대기'],['done','완료']];
 let tasks = store.json('sv4_cache', []);
+let hq = store.json('sv5_hq', null);   // 본부 시트에서 읽은 것 (팀·프로젝트·보고함)
+let hqOn = false;
 let queue = store.json('sv4_queue', []);
 let tab = store.get('sv4_tab','today');
 let catFilter = '';
@@ -263,7 +304,7 @@ let doneLimit = 30;
 function kstToday(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
 function uid(){ return 'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function saveLocal(){ store.set('sv4_cache', JSON.stringify(tasks)); store.set('sv4_queue', JSON.stringify(queue)); }
+function saveLocal(){ store.set('sv4_cache', JSON.stringify(tasks)); store.set('sv4_queue', JSON.stringify(queue)); if(hq) store.set('sv5_hq', JSON.stringify(hq)); }
 
 // ---------- 알림 ----------
 let toastTimer=null;
@@ -343,12 +384,15 @@ async function load(){
     const res=await fetch(S.url+'?t='+Date.now());
     const j=await res.json();
     if(!j.ok) throw new Error(j.error||'error');
-    serverOk = j.version===APP_VERSION;
+    serverOk = +String(j.version).replace(/\D/g,'') >= 4;
+    hqOn = !!(j.features && j.features.includes('hq'));
+    if(j.hq && j.hq.ok) hq=j.hq;
+    else if(j.hq && hq) hq.error=j.hq.error;
     $('#banner').hidden=serverOk;
     if(!serverOk) $('#banner').textContent='시트 쪽 코드(Code.gs)가 아직 예전 버전이라 보기만 됩니다. Apps Script에 새 코드를 붙여넣고 새 버전으로 배포해 주세요.';
     if(j.today) today=j.today;
     if(queue.length) return;            // 불러오는 사이 새 변경이 생겼으면 덮어쓰지 않음
-    tasks=j.tasks||[]; saveLocal(); render(); syncLabel();
+    tasks=j.tasks||[]; saveLocal(); fillProjects(); render(); syncLabel();
   }catch(e){
     setSync('retry','연결 안 됨 · 다시 시도'); render();
   }
@@ -445,9 +489,15 @@ function addQuick(){
 // ---------- 화면 ----------
 const open = t => t.status!=='완료' && t.status!=='삭제';
 function byOrder(a,b){ return (+a.order||0)-(+b.order||0) || String(a.createdAt).localeCompare(String(b.createdAt)); }
+function hqItems(){
+  if(!hq||!hq.ok) return {decisions:[],inbox:[],delegated:[]};
+  const delegated=tasks.filter(t=>/^o-\d+$/.test(t.link||'')&&t.status==='대기').sort(byOrder);
+  return {decisions:hq.decisions||[], inbox:hq.inbox||[], delegated};
+}
 function listFor(k){
   let l;
   switch(k){
+    case 'hq': { const h=hqItems(); return [...h.decisions,...h.inbox,...h.delegated]; }
     case 'today': l=tasks.filter(t=>open(t)&&t.today); break;
     case 'now':   l=tasks.filter(t=>open(t)&&t.bucket==='지금'&&t.status!=='대기'); break;
     case 'later': l=tasks.filter(t=>open(t)&&t.bucket==='나중'&&t.status!=='대기'); break;
@@ -481,6 +531,7 @@ function render(){
   $('#filters').innerHTML=['',...cats].map(c=>`<button data-cat="${esc(c)}" class="${c===catFilter?'on':''}">${c?esc(c):'전체'}</button>`).join('');
   if(catFilter) list=list.filter(t=>t.category===catFilter);
 
+  if(tab==='hq'){ renderHq(); return; }
   if(!list.length){
     const msg={today:'오늘 할 일이 없습니다. 아래에 적거나, 지금 탭에서 항목을 눌러 <오늘 할 일>을 켜세요.',done:'아직 완료한 일이 없습니다.',wait:'답을 기다리는 일이 없습니다.'}[tab]||'비어 있습니다. 아래 입력줄에 적어 보세요.';
     $('#main').innerHTML=`<div class="list"><div class="empty">${esc(msg)}</div></div>`; return;
@@ -490,6 +541,40 @@ function render(){
   $('#main').innerHTML=`<div class="list" id="list">${list.map(row).join('')}${more}</div>`;
 }
 
+function renderHq(){
+  $('#filters').hidden=true;
+  if(!hqOn){ $('#main').innerHTML=`<div class="list"><div class="empty">시트 코드(Code.gs)를 v5로 배포하면 수석비서 보고함이 여기에 보입니다.</div></div>`; return; }
+  if(!hq||!hq.ok){ $('#main').innerHTML=`<div class="list"><div class="empty">본부 시트를 읽지 못했습니다.${hq&&hq.error?' ('+esc(hq.error)+')':''} Config 탭의 HQ_SHEET_ID와 공유 권한을 확인해 주세요.</div></div>`; return; }
+  const h=hqItems(); const parts=[];
+  if(h.decisions.length){
+    parts.push(`<div class="sec"><b>대표님 결정 필요</b><span>${h.decisions.length}건 · Status 탭</span></div><div class="list">`+
+      h.decisions.map(d=>`<div class="card"><div class="who"><b>${esc(d.team)}</b><span>${esc(d.updated||'')}</span></div><div class="act">${esc(d.text)}</div>
+        <div class="btns"><button data-hq="adopt-decision" data-team="${esc(d.team)}" data-text="${esc(d.text)}">할 일로</button></div></div>`).join('')+`</div>`);
+  }
+  if(h.inbox.length){
+    parts.push(`<div class="sec"><b>보고함</b><span>${h.inbox.length}건 · 아직 안 본 것</span></div><div class="list">`+
+      h.inbox.map(r=>`<div class="card" data-row="${r.row}">
+        <div class="who"><b>${esc(r.team)}</b>${r.type==='경보'?'<span class="chip alert">경보</span>':r.type==='제안'?'<span class="chip due">제안</span>':''}${r.priority==='상'?'<span class="chip alert">우선 상</span>':''}<span>${esc(r.date)}</span>${r.due?`<span>마감 ${esc(fmtDue(r.due))}</span>`:''}</div>
+        <div class="ttl">${esc(r.title)}</div>
+        ${r.action?`<div class="act"><b>할 일 </b>${esc(r.action)}</div>`:''}
+        ${r.content?`<div class="body2" data-act="expand">${esc(r.content)}</div>`:''}
+        <div class="btns"><button class="pri" data-hq="ack" data-row="${r.row}">확인</button><button data-hq="adopt" data-row="${r.row}">할 일로</button></div></div>`).join('')+`</div>`);
+  }
+  if(h.delegated.length){
+    parts.push(`<div class="sec"><b>팀에 맡긴 일</b><span>${h.delegated.length}건</span></div><div class="list">`+h.delegated.map(row).join('')+`</div>`);
+  }
+  if(!parts.length) parts.push(`<div class="list"><div class="empty">수석비서가 올린 결정·보고가 없습니다. 할 일을 열어 <팀에 맡기기>로 일을 넘길 수 있어요.</div></div>`);
+  $('#main').innerHTML=parts.join('');
+}
+function fillProjects(){
+  const names=(hq&&hq.projects||[]).map(p=>p.name);
+  $('#projList').innerHTML=names.map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
+function orderChip(t){
+  const o=hq&&hq.orders&&hq.orders[t.link]; if(!o) return `<span class="chip team">팀 · ${esc(t.waitingOn||'')}</span>`;
+  const done=['완료','실패','보류'].includes(o.status);
+  return `<span class="chip ${done?'teamdone':'team'}">${esc(o.team||t.waitingOn)} · ${esc(o.status||'신규')}</span>`;
+}
 const ICON_CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 function row(t){
@@ -497,7 +582,8 @@ function row(t){
   const chips=[
     (t.today&&tab!=='today'&&isOpen)?'<span class="chip now">오늘</span>':'',
     t.due&&isOpen?`<span class="chip ${late?'late':'due'}">${esc(fmtDue(t.due))}</span>`:'',
-    t.status==='대기'?`<span class="chip wait">대기${t.waitingOn?' · '+esc(t.waitingOn):''}</span>`:'',
+    /^o-\d+$/.test(t.link||'')&&t.status==='대기'?orderChip(t):(t.status==='대기'?`<span class="chip wait">대기${t.waitingOn?' · '+esc(t.waitingOn):''}</span>`:''),
+    (t.memo||'').startsWith('[팀 ')&&isOpen?`<span class="chip teamdone">${esc(t.memo.split(']')[0].slice(1))}</span>`:'',
     t.status==='진행중'?'<span class="chip due">진행중</span>':'',
     (tab==='today'||tab==='wait')&&t.bucket!=='지금'?`<span class="chip">${esc(t.bucket)}</span>`:'',
     t.category?`<span class="chip">${esc(t.category)}</span>`:'',
@@ -572,8 +658,38 @@ function openEdit(t){
   seg($('#eStatus'),['할일','진행중','대기','완료'],draft.status,v=>draft.status=v);
   $('#eDue').value=t.due||''; $('#eMin').value=t.minutes||''; $('#eCat').value=t.category||''; $('#eProject').value=t.project||'';
   $('#eWait').value=t.waitingOn||''; $('#eRepeat').value=t.repeat||''; $('#eMemo').value=t.memo||'';
+  setupHandoff(t);
   disarmDel(); openSheet('#edit');
 }
+let hoPri='중';
+function setupHandoff(t){
+  const box=$('#handoff'); box.open=false;
+  const teams=(hq&&hq.ok&&hq.teams)||[];
+  const canDo = hqOn && teams.length && t.status!=='완료';
+  box.hidden=!canDo; if(!canDo) return;
+  const already=/^o-\d+$/.test(t.link||'')&&t.status==='대기';
+  $('#hoHint').textContent = already ? `${t.waitingOn||'팀'}에 넘김 · ${t.link}` : '수석비서 팀이 대신 처리';
+  $('#hoTeam').innerHTML=teams.filter(x=>x.name!=='Chief of Staff').map(x=>`<option value="${esc(x.name)}" ${x.active?'':'disabled'}>${esc(x.label||x.name)}${x.active?'':' (준비중)'}</option>`).join('');
+  const guess=teams.find(x=>x.active&&x.name!=='Chief of Staff'&&((t.project&&(hq.projects||[]).some(p=>p.name===t.project&&p.team===x.name))||(t.waitingOn===x.name)));
+  if(guess) $('#hoTeam').value=guess.name;
+  $('#hoText').value = (t.title + (t.memo&&!t.memo.startsWith('[팀 ')?'\n'+t.memo:'')).trim();
+  hoPri = t.today?'상':'중';
+  seg($('#hoPri'),['상','중','하'],hoPri,v=>hoPri=v);
+  $('#hoGo').disabled=already; $('#hoGo').textContent=already?'이미 넘긴 일입니다':'팀에 넘기기';
+}
+$('#hoGo').onclick=()=>{
+  const t=editing; if(!t) return;
+  const team=$('#hoTeam').value, text=$('#hoText').value.trim();
+  if(!team){ toast('팀을 골라 주세요'); return; }
+  if(!text){ toast('지시 내용을 적어 주세요'); return; }
+  const due=$('#eDue').value||t.due||'';
+  closeSheets();
+  if(!guard()) return;
+  const before=Object.assign({},t);
+  Object.assign(t,{status:'대기',waitingOn:team,today:false,due,updatedAt:today}); saveLocal(); render();
+  enqueue({action:'delegate',id:t.id,expectTitle:before.title,team,text,priority:hoPri,due});
+  toast(`${team}에 넘겼어요. 팀이 다음 실행 때 가져갑니다.`);
+};
 function disarmDel(){ clearTimeout(delArmed); delArmed=null; $('#del').classList.remove('armed'); $('#del').textContent='삭제'; }
 $('#eToday').onclick=()=>{ draft.today=!draft.today; $('#eToday').classList.toggle('on',draft.today); };
 $('#save').onclick=()=>{
@@ -611,9 +727,9 @@ $('#sTest').onclick=async()=>{
   const u=$('#sUrl').value.trim(); if(!u){ $('#sInfo').textContent='주소를 먼저 넣어 주세요.'; return; }
   $('#sInfo').textContent='확인 중…';
   try{ const j=await (await fetch(u+'?action=ping&t='+Date.now())).json();
-    if(j.version!==APP_VERSION){ $('#sInfo').textContent='연결은 되지만 시트 코드가 예전 버전입니다. Code.gs를 새로 배포해 주세요.'; return; }
+    if(+String(j.version).replace(/\D/g,'')<4){ $('#sInfo').textContent='연결은 되지만 시트 코드가 예전 버전입니다. Code.gs를 새로 배포해 주세요.'; return; }
     const a=await (await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'batch',token:$('#sToken').value.trim(),who:'app',ops:[]})})).json();
-    $('#sInfo').textContent = a.error==='unauthorized' ? '주소는 맞지만 토큰이 다릅니다. 대소문자까지 시트 Config 탭과 똑같이 넣어 주세요.' : `연결됨 · 토큰 확인됨 · 시트 코드 ${j.version}`;
+    $('#sInfo').textContent = a.error==='unauthorized' ? '주소는 맞지만 토큰이 다릅니다. 대소문자까지 시트 Config 탭과 똑같이 넣어 주세요.' : `연결됨 · 토큰 확인됨 · 시트 코드 ${j.version}${j.hq?' · 수석비서 본부 연결됨':(j.features&&j.features.includes('hq')?' · 본부 시트 미연결':'')}`;
   }catch(e){ $('#sInfo').textContent='연결하지 못했습니다. 주소와 배포 접근 권한(모든 사용자)을 확인해 주세요.'; }
 };
 
@@ -635,8 +751,28 @@ if(SR){
 // ---------- 이벤트 ----------
 $('#tabs').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; tab=b.dataset.tab; catFilter=''; doneLimit=30; store.set('sv4_tab',tab); render(); updatePreview(); window.scrollTo({top:0}); };
 $('#filters').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; catFilter=b.dataset.cat; render(); };
+function ackReport(row){
+  if(!guard()) return;
+  if(hq&&hq.inbox) hq.inbox=hq.inbox.filter(r=>r.row!==row);
+  saveLocal(); render(); enqueue({action:'ack',row});
+}
+function adoptReport(r){
+  const title=(r.action||r.title).slice(0,120);
+  const memo=`${r.team} ${r.type} (${r.date}) ${r.title}\n${r.content||''}`.trim();
+  const t=addTask({title,today:true,bucket:'지금',memo,due:r.due||'',category:r.team,link:'r'+r.row});
+  if(t){ ackReport(r.row); tab='today'; store.set('sv4_tab',tab); render(); toast('오늘 할 일에 넣었어요'); }
+}
 $('#main').addEventListener('click',e=>{
   if(e.target.id==='more'){ doneLimit+=50; render(); return; }
+  const hb=e.target.closest('[data-hq]');
+  if(hb){
+    const k=hb.dataset.hq;
+    if(k==='ack') ackReport(+hb.dataset.row);
+    else if(k==='adopt'){ const r=(hq.inbox||[]).find(x=>x.row===+hb.dataset.row); if(r) adoptReport(r); }
+    else if(k==='adopt-decision'){ const t=addTask({title:hb.dataset.text.slice(0,120),today:true,bucket:'지금',category:hb.dataset.team,memo:`${hb.dataset.team} 결정 필요 (Status 탭)`}); if(t){ tab='today'; store.set('sv4_tab',tab); render(); toast('오늘 할 일에 넣었어요'); } }
+    return;
+  }
+  const ex=e.target.closest('[data-act="expand"]'); if(ex){ ex.classList.toggle('open'); return; }
   const b=e.target.closest('[data-act]'); if(!b) return;
   const el=b.closest('.task'); const t=el&&tasks.find(x=>x.id===el.dataset.id); if(!t) return;
   if(b.dataset.act==='toggle') toggleDone(t);
@@ -652,7 +788,7 @@ $('#sync').onclick=()=>{ backoff=0; if(queue.length) flush(); else load(); };
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ today=kstToday(); backoff=0; load(); } });
 window.addEventListener('online',()=>{ backoff=0; flush(); });
 
-render(); syncLabel(); load();
+fillProjects(); render(); syncLabel(); load();
 })();
 </script>
 </body>
